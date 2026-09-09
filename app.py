@@ -129,7 +129,7 @@ with col1:
     extracted_prompt = ""
     if ref_file:
         ref_img = Image.open(ref_file)
-        st.image(ref_img, caption="Reference Image", use_column_width=True)
+        st.image(ref_img, caption="Reference Image", use_container_width=True)
         
         if st.button("✨ Extract Prompt") and api_key:
             with st.spinner("AI பிராம்ட்டை உருவாக்குகிறது..."):
@@ -164,7 +164,7 @@ with col2:
                 res = requests.get(img_url)
                 if res.status_code == 200:
                     out_img = Image.open(io.BytesIO(res.content))
-                    st.image(out_img, caption="Generated AI Photo", use_column_width=True)
+                    st.image(out_img, caption="Generated AI Photo", use_container_width=True)
                     st.download_button("📥 Download Photo", data=res.content, file_name="Ji_Image_Studio_Photo.jpg", mime="image/jpeg")
                 else:
                     st.error("இமேஜ் உருவாக்க முடியவில்லை.")
