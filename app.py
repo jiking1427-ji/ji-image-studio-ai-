@@ -4,8 +4,22 @@ from PIL import Image
 import requests
 import io
 import urllib.parse
+import os
 
-# 1. Page Config with Logo Favicon
+# 1. API Key Setup (Render Environment Variable-ல் இருந்து எடுக்கும்)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+if GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        pass
+
+# Initialize Session State for Prompt Retention
+if "extracted_prompt" not in st.session_state:
+    st.session_state["extracted_prompt"] = ""
+
+# 2. Page Config with Logo Favicon
 try:
     logo_img = Image.open("logo.png")
     st.set_page_config(
@@ -22,20 +36,12 @@ except Exception:
         initial_sidebar_state="expanded"
     )
 
-# 2. SEO Meta Tags & ChatGPT Dark Theme CSS
+# 3. SEO Meta Tags & ChatGPT Dark Theme CSS
 st.markdown("""
     <head>
         <meta property="og:site_name" content="Ji Image Studio AI">
         <meta name="description" content="Ji Image Studio AI - Convert Images to AI Prompts and generate custom AI photos seamlessly.">
         <link rel="icon" type="image/png" href="logo.png">
-        <script type="application/ld+json">
-        {
-          "@context" : "https://schema.org",
-          "@type" : "WebSite",
-          "name" : "Ji Image Studio AI",
-          "url" : "https://ji-image-studio-ai.onrender.com/"
-        }
-        </script>
     </head>
     
     <style>
@@ -112,11 +118,7 @@ with st.sidebar:
         pass
     st.title("Ji Image Studio AI")
     st.write("---")
-    api_key = st.text_input("Gemini API Key உள்ளிடவும்:", type="password")
-    st.caption("உங்கள் API தகவல்கள் பாதுகாப்பாகப் பராமரிக்கப்படும்.")
-
-if api_key:
-    genai.configure(api_key=api_key)
+    st.info("✨ AI Image & Prompt Studio")
 
 # Main Application Layout
 col1, col2 = st.columns(2)
@@ -126,23 +128,30 @@ with col1:
     st.markdown("### 1️⃣ Step 1: Image to Prompt")
     ref_file = st.file_uploader("ரெஃபரன்ஸ் போட்டோ அப்லோட் செய்க:", type=["jpg", "jpeg", "png"], key="ref")
     
-    extracted_prompt = ""
     if ref_file:
         ref_img = Image.open(ref_file)
         st.image(ref_img, caption="Reference Image", use_container_width=True)
         
-        if st.button("✨ Extract Prompt") and api_key:
-            with st.spinner("AI பிராம்ட்டை உருவாக்குகிறது..."):
-                try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    prompt_req = "Analyze this image and create a detailed photo prompt describing lighting, costume, pose, and background style."
-                    res = model.generate_content([prompt_req, ref_img])
-                    extracted_prompt = res.text
-                    st.success("பிராம்ட் தயார்!")
-                except Exception:
-                    st.error("பிழை ஏற்பட்டது. API Key-ஐ சரிபார்க்கவும்.")
+        if st.button("✨ Extract Prompt"):
+            if not GEMINI_API_KEY:
+                st.error("⚠️ Gemini API Key Render-ல் அமைக்கப்படவில்லை! (Render Environment Variable பார்க்கவும்)")
+            else:
+                with st.spinner("AI பிராம்ட்டை உருவாக்குகிறது..."):
+                    try:
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        prompt_req = "Analyze this image and create a detailed photo prompt describing lighting, costume, pose, and background style."
+                        res = model.generate_content([prompt_req, ref_img])
+                        st.session_state["extracted_prompt"] = res.text
+                        st.success("பிராம்ட் தயார்!")
+                    except Exception as e:
+                        st.error(f"பிழை ஏற்பட்டது: {str(e)}")
                     
-    prompt_box = st.text_area("Extracted AI Prompt:", value=extracted_prompt, height=120, placeholder="பிராம்ட் இங்கு தோன்றும்...")
+    prompt_box = st.text_area(
+        "Extracted AI Prompt:", 
+        value=st.session_state["extracted_prompt"], 
+        height=120, 
+        placeholder="பிராம்ட் இங்கு தோன்றும்..."
+    )
 
 # Step 2: AI Photo Generator
 with col2:
@@ -156,17 +165,20 @@ with col2:
     final_prompt = st.text_area("AI Prompt (Auto-filled):", value=prompt_box, height=100)
     gen_btn = st.button("🚀 Generate My AI Photo")
     
-    if gen_btn and final_prompt:
-        with st.spinner("உங்கள் புதிய AI புகைப்படம் உருவாகிறது..."):
-            try:
-                encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, face accuracy")
-                img_url = f"https://pollinations.ai/p/{encoded}?width=1024&height=1024&seed=42"
-                res = requests.get(img_url)
-                if res.status_code == 200:
-                    out_img = Image.open(io.BytesIO(res.content))
-                    st.image(out_img, caption="Generated AI Photo", use_container_width=True)
-                    st.download_button("📥 Download Photo", data=res.content, file_name="Ji_Image_Studio_Photo.jpg", mime="image/jpeg")
-                else:
-                    st.error("இமேஜ் உருவாக்க முடியவில்லை.")
-            except Exception:
-                st.error("தொழில்நுட்பப் பிழை ஏற்பட்டது.")
+    if gen_btn:
+        if not final_prompt:
+            st.warning("தயவுசெய்து பிராம்ட்டை உள்ளிடவும்!")
+        else:
+            with st.spinner("உங்கள் புதிய AI புகைப்படம் உருவாகிறது..."):
+                try:
+                    encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, face accuracy")
+                    img_url = f"https://pollinations.ai/p/{encoded}?width=1024&height=1024&seed=42"
+                    res = requests.get(img_url, timeout=30)
+                    if res.status_code == 200:
+                        out_img = Image.open(io.BytesIO(res.content))
+                        st.image(out_img, caption="Generated AI Photo", use_container_width=True)
+                        st.download_button("📥 Download Photo", data=res.content, file_name="Ji_Image_Studio_Photo.jpg", mime="image/jpeg")
+                    else:
+                        st.error("இமேஜ் உருவாக்க முடியவில்லை.")
+                except Exception as e:
+                    st.error(f"தொழில்நுட்பப் பிழை ஏற்பட்டது: {str(e)}")
