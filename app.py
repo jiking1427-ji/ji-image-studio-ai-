@@ -6,7 +6,7 @@ import io
 import urllib.parse
 import os
 
-# 1. API Key Setup
+# 1. API Key Setup (Render Environment Variable)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 if GEMINI_API_KEY:
@@ -15,11 +15,11 @@ if GEMINI_API_KEY:
     except Exception:
         pass
 
-# Initialize Session State
+# Initialize Session State for Prompt Retention
 if "extracted_prompt" not in st.session_state:
     st.session_state["extracted_prompt"] = ""
 
-# 2. Page Config
+# 2. Page Config with Logo Favicon
 try:
     logo_img = Image.open("logo.png")
     st.set_page_config(
@@ -36,8 +36,14 @@ except Exception:
         initial_sidebar_state="expanded"
     )
 
-# 3. Styling
+# 3. SEO Meta Tags & ChatGPT Dark Theme CSS
 st.markdown("""
+    <head>
+        <meta property="og:site_name" content="Ji Image Studio AI">
+        <meta name="description" content="Ji Image Studio AI - Convert Images to AI Prompts and generate custom AI photos seamlessly.">
+        <link rel="icon" type="image/png" href="logo.png">
+    </head>
+    
     <style>
     .stApp {
         background-color: #0E0E10 !important;
@@ -67,10 +73,21 @@ st.markdown("""
         color: #FFFFFF !important;
         border-radius: 8px !important;
     }
+    @media only screen and (max-width: 768px) {
+        div[data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            margin-bottom: 20px;
+        }
+        .stButton > button {
+            padding: 14px !important;
+            font-size: 16px !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Main Brand Header
+# Main Brand Header with Logo Display
 col_h1, col_h2, col_h3 = st.columns([1, 2, 1])
 with col_h2:
     try:
@@ -116,7 +133,7 @@ with col1:
                         st.session_state["extracted_prompt"] = res.text
                         st.success("பிராம்ட் தயார்!")
                     except Exception as e:
-                        st.error(f"பிராம்ட் உருவாக்க முடியவில்லை: {str(e)}")
+                        st.error(f"பிழை ஏற்பட்டது: {str(e)}")
                     
     prompt_box = st.text_area(
         "Extracted AI Prompt:", 
@@ -144,16 +161,21 @@ with col2:
             with st.spinner("உங்கள் புதிய AI புகைப்படம் உருவாகிறது..."):
                 try:
                     encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, sharp focus")
-                    img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed=42&nologo=true&model=flux"
                     
+                    # ⚡ Turbo model - 2 முதல் 5 நொடிகளில் வேகமாக உருவாகும்!
+                    img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&model=turbo"
                     headers = {'User-Agent': 'Mozilla/5.0'}
-                    res = requests.get(img_url, headers=headers, timeout=45)
+                    res = requests.get(img_url, headers=headers, timeout=25)
                     
-                    if res.status_code == 200:
+                    if res.status_code != 200 or res.content.startswith(b"<!DOCTYPE") or res.content.startswith(b"<html"):
+                        fallback_url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=768&nologo=true"
+                        res = requests.get(fallback_url, headers=headers, timeout=25)
+
+                    if res.status_code == 200 and not res.content.startswith(b"<!DOCTYPE") and not res.content.startswith(b"<html"):
                         out_img = Image.open(io.BytesIO(res.content))
                         st.image(out_img, caption="Generated AI Photo", use_container_width=True)
                         st.download_button("📥 Download Photo", data=res.content, file_name="Ji_Image_Studio_Photo.jpg", mime="image/jpeg")
                     else:
-                        st.warning("⚠️ இமேஜ் சர்வர் பிஸியாக உள்ளது. 10 வினாடிகள் கழித்து மீண்டும் அழுத்தவும்.")
-                except Exception:
-                    st.warning("⚠️ AI இமேஜ் உருவாக்கத்தில் சிறிய தாமதம் ஏற்படுகிறது. 10 வினாடிகள் கழித்து மீண்டும் 'Generate' பட்டனை அழுத்தவும்.")
+                        st.error("இமேஜ் உருவாக்க முடியவில்லை. 10 வினாடிகள் கழித்து மீண்டும் முயற்சிக்கவும்.")
+                except Exception as e:
+                    st.error(f"தொழில்நுட்பப் பிழை ஏற்பட்டது: {str(e)}")
