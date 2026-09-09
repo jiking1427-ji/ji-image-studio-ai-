@@ -6,20 +6,20 @@ import io
 import urllib.parse
 import os
 
-# 1. API Key Setup (Render Environment Variable-ல் இருந்து எடுக்கும்)
+# 1. API Key Setup
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 if GEMINI_API_KEY:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-    except Exception as e:
+    except Exception:
         pass
 
-# Initialize Session State for Prompt Retention
+# Initialize Session State
 if "extracted_prompt" not in st.session_state:
     st.session_state["extracted_prompt"] = ""
 
-# 2. Page Config with Logo Favicon
+# 2. Page Config
 try:
     logo_img = Image.open("logo.png")
     st.set_page_config(
@@ -36,34 +36,21 @@ except Exception:
         initial_sidebar_state="expanded"
     )
 
-# 3. SEO Meta Tags & ChatGPT Dark Theme CSS
+# 3. Styling
 st.markdown("""
-    <head>
-        <meta property="og:site_name" content="Ji Image Studio AI">
-        <meta name="description" content="Ji Image Studio AI - Convert Images to AI Prompts and generate custom AI photos seamlessly.">
-        <link rel="icon" type="image/png" href="logo.png">
-    </head>
-    
     <style>
-    /* Dark Theme Setup */
     .stApp {
         background-color: #0E0E10 !important;
         color: #ECECF1 !important;
     }
-    
-    /* Typography */
     h1, h2, h3, h4, label, p, span {
         color: #FFFFFF !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    
-    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #171717 !important;
         border-right: 1px solid #2A2A2A !important;
     }
-    
-    /* Buttons Styling */
     .stButton > button {
         background: linear-gradient(135deg, #2563EB, #1D4ED8) !important;
         color: #FFFFFF !important;
@@ -74,31 +61,16 @@ st.markdown("""
         width: 100% !important;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
     }
-    
-    /* Text Inputs & Dropzone */
     textarea, input, section[data-testid="stFileUploadDropzone"] {
         background-color: #171717 !important;
         border: 1px solid #2A2A2A !important;
         color: #FFFFFF !important;
         border-radius: 8px !important;
     }
-    
-    /* Mobile Responsiveness */
-    @media only screen and (max-width: 768px) {
-        div[data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 100% !important;
-            margin-bottom: 20px;
-        }
-        .stButton > button {
-            padding: 14px !important;
-            font-size: 16px !important;
-        }
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# Main Brand Header with Logo Display
+# Main Brand Header
 col_h1, col_h2, col_h3 = st.columns([1, 2, 1])
 with col_h2:
     try:
@@ -134,7 +106,7 @@ with col1:
         
         if st.button("✨ Extract Prompt"):
             if not GEMINI_API_KEY:
-                st.error("⚠️ Gemini API Key Render-ல் அமைக்கப்படவில்லை! (Render Environment Variable பார்க்கவும்)")
+                st.error("⚠️ Gemini API Key Render-ல் அமைக்கப்படவில்லை!")
             else:
                 with st.spinner("AI பிராம்ட்டை உருவாக்குகிறது..."):
                     try:
@@ -144,7 +116,7 @@ with col1:
                         st.session_state["extracted_prompt"] = res.text
                         st.success("பிராம்ட் தயார்!")
                     except Exception as e:
-                        st.error(f"பிழை ஏற்பட்டது: {str(e)}")
+                        st.error(f"பிராம்ட் உருவாக்க முடியவில்லை: {str(e)}")
                     
     prompt_box = st.text_area(
         "Extracted AI Prompt:", 
@@ -171,14 +143,17 @@ with col2:
         else:
             with st.spinner("உங்கள் புதிய AI புகைப்படம் உருவாகிறது..."):
                 try:
-                    encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, face accuracy")
-                    img_url = f"https://pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed=42&nologo=true"
-                    res = requests.get(img_url, timeout=30)
+                    encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, sharp focus")
+                    img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed=42&nologo=true&model=flux"
+                    
+                    headers = {'User-Agent': 'Mozilla/5.0'}
+                    res = requests.get(img_url, headers=headers, timeout=45)
+                    
                     if res.status_code == 200:
                         out_img = Image.open(io.BytesIO(res.content))
                         st.image(out_img, caption="Generated AI Photo", use_container_width=True)
                         st.download_button("📥 Download Photo", data=res.content, file_name="Ji_Image_Studio_Photo.jpg", mime="image/jpeg")
                     else:
-                        st.error("இமேஜ் உருவாக்க முடியவில்லை.")
-                except Exception as e:
-                    st.error(f"தொழில்நுட்பப் பிழை ஏற்பட்டது: {str(e)}")
+                        st.warning("⚠️ இமேஜ் சர்வர் பிஸியாக உள்ளது. 10 வினாடிகள் கழித்து மீண்டும் அழுத்தவும்.")
+                except Exception:
+                    st.warning("⚠️ AI இமேஜ் உருவாக்கத்தில் சிறிய தாமதம் ஏற்படுகிறது. 10 வினாடிகள் கழித்து மீண்டும் 'Generate' பட்டனை அழுத்தவும்.")
