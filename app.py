@@ -172,7 +172,7 @@ with col2:
             with st.spinner("உங்கள் புதிய AI புகைப்படம் உருவாகிறது..."):
                 try:
                     encoded = urllib.parse.quote(final_prompt + ", photorealistic 8k, face accuracy")
-                    img_url = f"https://pollinations.ai/p/{encoded}?width=1024&height=1024&seed=42"
+                    img_url = f"https://pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed=42&nologo=true"
                     res = requests.get(img_url, timeout=30)
                     if res.status_code == 200:
                         out_img = Image.open(io.BytesIO(res.content))
