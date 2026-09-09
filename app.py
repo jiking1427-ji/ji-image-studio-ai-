@@ -138,7 +138,7 @@ with col1:
             else:
                 with st.spinner("AI பிராம்ட்டை உருவாக்குகிறது..."):
                     try:
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        model = genai.GenerativeModel('gemini-2.5-flash')
                         prompt_req = "Analyze this image and create a detailed photo prompt describing lighting, costume, pose, and background style."
                         res = model.generate_content([prompt_req, ref_img])
                         st.session_state["extracted_prompt"] = res.text
